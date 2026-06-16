@@ -1,0 +1,16 @@
+# Large data files
+data_source/
+*.csv
+*.parquet
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Jupyter
+.DS_Store
+.vscode/
+.idea/

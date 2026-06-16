@@ -1,1 +1,13 @@
-data_source/
+# Ignore large data in all projects
+**/data_source/
+**/*.csv
+**/*.parquet
+**/*.zip
+
+# Common ignores
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+.idea/
