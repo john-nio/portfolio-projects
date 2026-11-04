@@ -1,9 +1,6 @@
 # Virtual environment
 .venv/
 
-# Raw data (large, public, re-downloadable — see README "Data Source & Setup")
-Data_source/
-
 # Python
 __pycache__/
 

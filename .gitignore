@@ -1,5 +1,6 @@
-# Data (any project)
-data_source/
+# Data — large raw dumps stay local; a project may commit a small curated extract
+# (TTC commits its 23 KB filtered CSV — see TTC/README.md "Verify the data")
+toronto_bikeshare/data_source/
 
 # Jupyter
 .ipynb_checkpoints/

@@ -13,8 +13,8 @@ This is a portfolio project: every number and chart in the notebook is reproduci
 ```
 TTC/
 │
-├── Data_source/                        # not committed (see "Data Source & Setup")
-│   └── TorontoMeasureData.csv          # 508 rows × 4 columns
+├── Data_source/
+│   └── TorontoMeasureData.csv          # committed — 508 rows × 4 columns (23 KB)
 │
 ├── visualizations/                     # charts exported from the notebook
 │
@@ -38,7 +38,8 @@ TTC/
 | Format | Tidy / long — one observation per row |
 | Missing Values | 46 nulls in `Period`, all structural (annual measures) |
 | Duplicates | None |
-| File Size | ~17 KB |
+| File Size | 23,132 bytes (~23 KB) |
+| Committed | Yes — included in the repo, so clone → Run All needs no setup |
 | Source Format | Filtered export of a 1.8 MB multi-indicator CSV |
 
 ### Columns
@@ -79,7 +80,9 @@ In the upstream file, annual rows store the *year* in `period_number_in_year` ra
 
 ## 📥 Data Source & Setup
 
-The raw CSV is **not committed to this repository** — it is public, re-downloadable, and excluded via `Data_source/` in `.gitignore`. This is the only setup step needed to run the notebook.
+The 23 KB data file **ships with this repository**, so a fresh clone runs the notebook immediately — there is no download or setup step. It is a small, curated extract of a much larger open dataset; the full 1.8 MB source file stays upstream, and the sibling Bike Share project keeps its multi-hundred-MB raw dumps out of git.
+
+Because of that, the committed data can be **verified from first principles** — see [Verify the data](#verify-the-data-sha-256) below.
 
 | Property | Detail |
 |---|---|
@@ -90,9 +93,33 @@ The raw CSV is **not committed to this repository** — it is public, re-downloa
 | Refresh rate | Daily (dataset last refreshed 2026-11-04) |
 | Direct CSV | [`torontos-dashboard-key-metrics.csv`](https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/c6d64e9b-f85a-4084-be14-60cf18509203/resource/d4c2d841-2d74-466c-89a8-d8f7eba17050/download/torontos-dashboard-key-metrics.csv) |
 
-### Rebuild `TorontoMeasureData.csv` exactly
+### Verify the data (SHA-256)
 
-The committed file is a **filtered export** of the ~1.8 MB dashboard CSV: four TTC measures only, four columns, month names expanded, annual `Period` left blank, rows ordered by dashboard `measure_id` and written with Windows (CRLF) line endings. To regenerate it byte-for-byte from the live feed:
+The committed CSV is byte-identical to what the City of Toronto feed produces for these four measures — so you don't have to take that on trust. Check it yourself:
+
+```bash
+# macOS / Linux
+shasum -a 256 Data_source/TorontoMeasureData.csv
+# -> a962c429d162586397261281a74c4503b9bebab7d05cd871075c27e232e886e5
+```
+
+```powershell
+# Windows (PowerShell)
+Get-FileHash Data_source\TorontoMeasureData.csv -Algorithm SHA256
+```
+
+| Check | Expected |
+|---|---|
+| **SHA-256** | `a962c429d162586397261281a74c4503b9bebab7d05cd871075c27e232e886e5` |
+| Size | 23,132 bytes |
+| Rows (excluding header) | 508 |
+| Line endings | CRLF (the published export is Windows-formatted) |
+
+If the upstream dashboard is refreshed and a measure's history is revised, this file and its hash change together — silent drift becomes impossible to miss, and the diff in git shows exactly which observations moved.
+
+### Verify or rebuild the data file
+
+The committed file is a **filtered export** of the ~1.8 MB dashboard CSV: four TTC measures only, four columns, month names expanded, annual `Period` left blank, rows ordered by dashboard `measure_id` and written with Windows (CRLF) line endings. Rebuilding it from the City's live feed reproduces the committed file byte-for-byte:
 
 ```python
 from pathlib import Path
@@ -140,24 +167,23 @@ out.to_csv(Path("Data_source") / "TorontoMeasureData.csv", index=False, lineterm
 print(f"wrote {len(out)} rows")   # -> wrote 508 rows
 ```
 
-Run it once from the project root (or just download the CSV manually and keep the four measures listed above). The snippet was validated against the live source by checksum — it reproduces the data file **byte-for-byte** (508 rows, SHA-256 `a962c429d162586397261281a74c4503b9bebab7d05cd871075c27e232e886e5`).
+Nothing needs to be run to *use* this project — the data is already committed. That snippet is the **provenance check**: run it in a scratch directory and the CSV it writes will match the committed `Data_source/TorontoMeasureData.csv` byte-for-byte, so the export logic and the upstream feed can both be audited.
 
 ---
 
 ## 🚀 How to Run
 
 ```bash
-# 1. create the environment (Python 3.12.4)
+# 1. nothing to install and nothing to download — open the notebook and Run All
+jupyter notebook ttc_analysis.ipynb
+```
+
+Any Python 3 with pandas and matplotlib will run it (verified on pandas 2.2.2 *and* 3.1.0). To reproduce the exact pinned versions instead:
+
+```bash
 python3.12 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-
-# 2. install pinned dependencies
 pip install -r requirements.txt
-
-# 3. make sure the data file exists
-#    Data_source/TorontoMeasureData.csv   (see "Data Source & Setup")
-
-# 4. open the notebook
 jupyter notebook ttc_analysis.ipynb
 ```
 
