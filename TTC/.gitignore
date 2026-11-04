@@ -1,6 +1,17 @@
-portfolio_projects/
+# Virtual environment
 .venv/
+
+# Raw data (large, public, re-downloadable — see README "Data Source & Setup")
+Data_source/
+
+# Python
 __pycache__/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# Secrets
 .env
+
+# macOS
 .DS_Store
