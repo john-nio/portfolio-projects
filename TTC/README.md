@@ -1,6 +1,6 @@
 # 🚇 TTC Ridership Analysis
 
-An exploratory data analysis of **Toronto Transit Commission ridership from 2003 to 2026**, built on open data published by the City of Toronto. The project traces two decades of growth, the COVID-19 collapse and the still-incomplete recovery, measured across four indicators: monthly ridership, average weekday ridership, and annual peak / non-peak passenger rides.
+An exploratory data analysis of **Toronto Transit Commission ridership from 2003 to 2026**, built on open data published by the City of Toronto. The project traces two decades of growth to a **2016 peak**, the COVID-19 collapse and the still-incomplete recovery, measured across four indicators: monthly ridership, average weekday ridership, and annual peak / non-peak passenger rides.
 
 This is a portfolio project: every number and chart in the notebook is reproducible from the public data source documented below.
 
@@ -16,7 +16,10 @@ TTC/
 ├── Data_source/
 │   └── TorontoMeasureData.csv          # committed — 508 rows × 4 columns (23 KB)
 │
-├── visualizations/                     # charts exported from the notebook
+├── visualizations/                     # charts exported by the notebook (150 dpi)
+│   ├── 02_annual_ridership.png         #   annual totals + trailing 12-month series
+│   ├── 02_peak_vs_nonpeak.png          #   peak vs non-peak stacked area
+│   └── 02_yoy_growth.png               #   year-over-year change by era
 │
 ├── ttc_analysis.ipynb                  # EDA notebook
 ├── requirements.txt                    # pinned dependencies
@@ -69,12 +72,32 @@ TTC/
 - **No duplicate keys** — `Measure Name` + `Year` + `Period` is unique across all 508 rows.
 - **No missing values** in `Measure Name`, `Year` or `Value`.
 - **The 46 null `Period` values are structural**, not dirty data — the two annual measures have no month dimension.
-- **Series reconcile internally** — summed monthly ridership reproduces the annual peak + non-peak total within 100.0% for every year from 2008 to 2025.
-- **Consistent ratio** — monthly ridership ÷ average weekday ridership sits at ~26.5 every year, confirming both monthly series are measured on the same basis.
+- **Series reconcile internally** — summed monthly ridership reproduces the annual peak + non-peak total to within **0.011%** for every year from 2008 to 2025. Once the annual figures are rescaled from thousands to whole rides, the two independently published series agree to rounding.
+- **The monthly series is reported on 4-4-5 financial periods, not calendar months** — eight 4-week blocks plus four 5-week blocks, so every year covers exactly `8 × 28 + 4 × 35 = 364` days. This is why monthly ÷ weekday ridership sits at ~26.5 in every year: it is the weighted mix of two regimes, ~24.3 (4-week) and ~30.1 (5-week). See [Reporting periods](#-reporting-periods-are-4-4-5) below.
 
 ### Data quirk to know about
 
 In the upstream file, annual rows store the *year* in `period_number_in_year` rather than a period index. That is why `Period` is null for annual measures here — the export maps month numbers only for `interval_type == "m"`.
+
+### 📐 Reporting periods are 4-4-5
+
+The periodisation is not published in this extract, so the notebook recovers it from two independent columns — `monthly rides ÷ average weekday rides` gives **weekday-equivalent days** per reporting month:
+
+| | 4-week period | 5-week period |
+|---|---|---|
+| Weekday-equivalent days (median) | 24.34 | 30.26 |
+| Observations (2008–2025, excl. 2020–22) | 126 | 63 |
+| Range | 20.4 – 27.4 | 27.6 – 38.4 |
+
+The two regimes separate by 5.9 days with no overlap, and every complete year sums to 364 days. **Mar and Jun are 5-week in every year on record**; the other two 5-week slots rotate between Jan, Sep, Nov and Dec — 2018 is the only year where the fourth 5-week period falls in **November**, which is why that year shows a −22.6% December against a +21.2% November.
+
+Practical consequences, all handled in the notebook:
+
+| If you… | Why it breaks | What the notebook does instead |
+|---|---|---|
+| compare consecutive months | a 5-week month reads as a **+25%** jump | reports `rides_per_day`, not monthly totals |
+| divide by calendar days | 5-week months look 25% more productive | divides by `period_days` (28 / 35) |
+| quote a monthly figure as a month | it is a 4- or 5-week period total | labels it a reporting period throughout |
 
 ---
 
@@ -194,26 +217,32 @@ In VS Code, select `.venv/bin/python` as the kernel for `ttc_analysis.ipynb`. `i
 ## 📈 Analysis Plan
 
 - [x] Load and profile the dataset
-- [ ] **Section 1 — Normalise & shape** — split annual vs monthly measures, map `Period` → month number, build a `DatetimeIndex`, derive rides per day
-- [ ] **Section 2 — Long-term growth (2003–2019)** — annual totals, peak vs non-peak stacked area
+- [x] **Section 1 — Normalise & shape** — split annual vs monthly measures, map `Period` → month number, build a `DatetimeIndex`, recover the 4-4-5 reporting periods, derive rides per day, and build the `monthly` / `annual` / `ytd()` analysis frames
+- [x] **Section 2 — Long-term growth** — annual totals with a trailing 12-month overlay, peak vs non-peak stacked area, and year-over-year change split into growth / plateau / collapse / recovery eras
 - [ ] **Section 3 — Seasonality** — year × month heatmap, seasonality index, best/worst months per era
 - [ ] **Section 4 — COVID shock & recovery** — 2019 = 100 indexed series through 2026 YTD
 - [ ] **Section 5 — Peak / non-peak structural shift** — peak-hour share of total rides over time
-- [ ] **Section 6 — Weekday vs total relationship** — the stable ~26.5 monthly-to-weekday ratio, and whether it shifted after 2020
+- [ ] **Section 6 — Weekday vs total relationship** — decompose the ~26.5 monthly-to-weekday ratio into its 4-4-5 mix (~24.3 vs ~30.1), and test whether the weekday/weekend balance shifted after 2020
 - [ ] **Section 7 — Summary dashboard & key insights**
 
 ---
 
 ## 🔍 Preliminary Findings
 
-Verified while profiling the data; not yet charted.
+Verified while profiling and charting the annual series.
 
 | Finding | Value |
 |---|---|
+| **Calendar-year peak** | **2016** — 538.1M rides. Not 2019: ridership fell in three of the four years to 2018 and 2019 was still **−2.3%** below 2016 |
+| **Strongest 12 months on record** | **541.3M**, the window ending **February 2018** — higher than any calendar year, because it blends a strong 2017 second half with a strong 2018 first half |
+| Growth rate, 2003 → 2016 | **+2.20%/yr** compound, **+32.7%** in total |
+| Pre-COVID plateau | 2015–2019: ridership fell in 3 of 5 years, netting out 2.3% below the 2016 peak before the pandemic |
 | 2019 → 2020 collapse | **−57.2%** (525.5M → 225.0M rides) |
-| Trough year | **2021** — 197.8M rides |
+| Trough year | **2021** — 197.8M rides, **−63.2%** from the 2016 peak |
 | 2025 vs 2019 recovery | **−21.4%** — still short of pre-pandemic ridership |
+| Peak-hour vs non-peak recovery | peak-hour rides **−27.0%** vs 2019, non-peak **−16.8%** — a 10.2-point gap, so the commuter market is the part that has not come back |
 | 2026 YTD (Jan–Sep) vs 2025 | **−1.0%** (303.4M vs 306.5M) — recovery has plateaued |
+| Trailing 12 months to Sep 2026 | **410.0M**, −22.0% vs 2019 |
 | Peak-hour share of rides | 47.3% (2003) → 43.0% (2014) → 39.9% (2021) → 42.0% (2025) |
 
 ---
@@ -223,8 +252,9 @@ Verified while profiling the data; not yet charted.
 - **No route, line or station detail** — this extract is system-wide only, so "which line recovered fastest" is not answerable.
 - **No fare revenue** — the upstream dataset also publishes `TTC Ridership Revenues` (237 monthly rows); adding it is the natural next extension.
 - **Monthly granularity only** — no daily or hourly ridership.
-- **2026 is partial** (Jan–Sep) — always compare year-to-date to year-to-date.
-- The upstream notes for TTC's earlier monthly ridership file caution that TTC reports on 4-4-5 week financial periods, so single-month comparisons can be skewed by 4- vs 5-week periods.
+- **2026 is partial** (Jan–Sep) — always compare year-to-date to year-to-date; the notebook's `ytd()` helper exists for exactly this.
+- **TTC reports on 4-4-5 week financial periods**, so a "month" in this data is a 4- or 5-week block, not a calendar month. The period table is recovered and asserted in Section 1.3; raw month-over-month comparisons are not used anywhere, and month-level rates are always divided by reporting days (28 / 35), never calendar days.
+- **Single-month values can be revised upstream** — e.g. December 2024 average weekday ridership (1,061k) is 13.0% below both December 2023 and December 2025 in a year that otherwise grew, while the same month's total stayed at 40.7M. It is flagged rather than "corrected", since the true figure is unknown.
 
 ---
 
