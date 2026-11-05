@@ -1,6 +1,6 @@
 # 🚇 TTC Ridership Analysis
 
-An exploratory data analysis of **Toronto Transit Commission ridership from 2003 to 2026**, built on open data published by the City of Toronto. The project traces two decades of growth to a **2016 peak**, the COVID-19 collapse and the still-incomplete recovery, measured across four indicators: monthly ridership, average weekday ridership, and annual peak / non-peak passenger rides.
+An exploratory data analysis of **Toronto Transit Commission ridership from 2003 to 2026**, built on open data published by the City of Toronto. The project traces two decades of growth to a **2016 peak**, the COVID-19 collapse, and the recovery that has stalled at **78% of 2019**, measured across four indicators: monthly ridership, average weekday ridership, and annual peak / non-peak passenger rides.
 
 This is a portfolio project: every number and chart in the notebook is reproducible from the public data source documented below.
 
@@ -19,7 +19,13 @@ TTC/
 ├── visualizations/                     # charts exported by the notebook (150 dpi)
 │   ├── 02_annual_ridership.png         #   annual totals + trailing 12-month series
 │   ├── 02_peak_vs_nonpeak.png          #   peak vs non-peak stacked area
-│   └── 02_yoy_growth.png               #   year-over-year change by era
+│   ├── 02_yoy_growth.png               #   year-over-year change by era
+│   ├── 03_seasonality_heatmap.png      #   rides per day, year × month
+│   ├── 03_seasonality_era.png          #   seasonality index by era
+│   ├── 03_445_artifact.png             #   raw totals vs rides per reporting day
+│   ├── 04_recovery_index.png           #   monthly index vs the same month of 2019
+│   ├── 04_recovery_by_month.png        #   recovery completeness by calendar month
+│   └── 04_recovery_ladder.png          #   Jan–Sep recovery ladder, per reporting day
 │
 ├── ttc_analysis.ipynb                  # EDA notebook
 ├── requirements.txt                    # pinned dependencies
@@ -98,6 +104,8 @@ Practical consequences, all handled in the notebook:
 | compare consecutive months | a 5-week month reads as a **+25%** jump | reports `rides_per_day`, not monthly totals |
 | divide by calendar days | 5-week months look 25% more productive | divides by `period_days` (28 / 35) |
 | quote a monthly figure as a month | it is a 4- or 5-week period total | labels it a reporting period throughout |
+
+Section 3.3 measures the size of that effect: indexed across months, the raw totals vary **2.36×** more than the same ridership measured per reporting day.
 
 ---
 
@@ -219,8 +227,8 @@ In VS Code, select `.venv/bin/python` as the kernel for `ttc_analysis.ipynb`. `i
 - [x] Load and profile the dataset
 - [x] **Section 1 — Normalise & shape** — split annual vs monthly measures, map `Period` → month number, build a `DatetimeIndex`, recover the 4-4-5 reporting periods, derive rides per day, and build the `monthly` / `annual` / `ytd()` analysis frames
 - [x] **Section 2 — Long-term growth** — annual totals with a trailing 12-month overlay, peak vs non-peak stacked area, and year-over-year change split into growth / plateau / collapse / recovery eras
-- [ ] **Section 3 — Seasonality** — year × month heatmap, seasonality index, best/worst months per era
-- [ ] **Section 4 — COVID shock & recovery** — 2019 = 100 indexed series through 2026 YTD
+- [x] **Section 3 — Seasonality** — year × month heatmap of rides per reporting day, seasonality index by era, and the 4-4-5 distortion isolated against the corrected series
+- [x] **Section 4 — COVID shock & recovery** — monthly 2019-indexed series on a per-reporting-day basis, recovery completeness by calendar month, and the Jan–Sep recovery ladder through 2026
 - [ ] **Section 5 — Peak / non-peak structural shift** — peak-hour share of total rides over time
 - [ ] **Section 6 — Weekday vs total relationship** — decompose the ~26.5 monthly-to-weekday ratio into its 4-4-5 mix (~24.3 vs ~30.1), and test whether the weekday/weekend balance shifted after 2020
 - [ ] **Section 7 — Summary dashboard & key insights**
@@ -229,7 +237,7 @@ In VS Code, select `.venv/bin/python` as the kernel for `ttc_analysis.ipynb`. `i
 
 ## 🔍 Preliminary Findings
 
-Verified while profiling and charting the annual series.
+Verified while profiling, charting and asserting the series in Sections 1–3.
 
 | Finding | Value |
 |---|---|
@@ -244,6 +252,14 @@ Verified while profiling and charting the annual series.
 | 2026 YTD (Jan–Sep) vs 2025 | **−1.0%** (303.4M vs 306.5M) — recovery has plateaued |
 | Trailing 12 months to Sep 2026 | **410.0M**, −22.0% vs 2019 |
 | Peak-hour share of rides | 47.3% (2003) → 43.0% (2014) → 39.9% (2021) → 42.0% (2025) |
+| **Strongest month** | **November** (index 1.07 vs the year's average month) — not September, which is second at 1.05 |
+| **Weakest month** | **January** now, at index **0.87** — it was 0.99 before 2020. Pre-pandemic the trough was August (0.93) |
+| Seasonal spread | widened from **13%** (2015–19) to **20%** (2023–25): the swing has deepened, not flattened |
+| 4-4-5 distortion | raw monthly totals vary **2.36×** more across months than the true seasonal shape; March reads as +15.5% when its real index is 0.996 |
+| **Fastest collapse** | April 2020 fell to **12.8%** of April 2019 in one reporting period; March 2020 was 51.5%, and January 2020 was still 122% |
+| **Recovery plateau** | Jan–Sep recovery peaked at **79.9%** of 2019 in **2024**, then slipped to **78.7%** (2025) and **77.9%** (2026) — it is drifting down, not levelling |
+| **Where recovery is stuck** | 2025 by month: everything sits at 77–81% of 2019 **except January at 72%**, and January is falling (77.7% → 72.4% → 65.9%) |
+| Trap avoided | indexing *raw* monthly totals to 2019 makes December 2025 look like a **98.5%** recovery; per reporting day it is **78.8%**, because Dec 2019 was a 4-week period and Dec 2025 a 5-week one |
 
 ---
 
