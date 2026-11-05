@@ -116,99 +116,6 @@ Section 3.3 measures the size of that effect: indexed across months, the raw tot
 
 ---
 
-## 📥 Data Source & Setup
-
-The 23 KB data file **ships with this repository**, so a fresh clone runs the notebook immediately — there is no download or setup step. It is a small, curated extract of a much larger open dataset; the full 1.8 MB source file stays upstream, and the sibling Bike Share project keeps its multi-hundred-MB raw dumps out of git.
-
-Because of that, the committed data can be **verified from first principles** — see [Verify the data](#verify-the-data-sha-256) below.
-
-| Property | Detail |
-|---|---|
-| Dataset | Toronto's Dashboard Key Indicators |
-| Publisher | City of Toronto — City Manager's Office, Performance Management |
-| Portal page | https://open.toronto.ca/dataset/toronto-s-dashboard-key-indicators/ |
-| Licence | Open Government Licence – Toronto |
-| Refresh rate | Daily (dataset last refreshed 2026-11-04) |
-| Direct CSV | [`torontos-dashboard-key-metrics.csv`](https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/c6d64e9b-f85a-4084-be14-60cf18509203/resource/d4c2d841-2d74-466c-89a8-d8f7eba17050/download/torontos-dashboard-key-metrics.csv) |
-
-### Verify the data (SHA-256)
-
-The committed CSV is byte-identical to what the City of Toronto feed produces for these four measures — so you don't have to take that on trust. Check it yourself:
-
-```bash
-# macOS / Linux
-shasum -a 256 Data_source/TorontoMeasureData.csv
-# -> a962c429d162586397261281a74c4503b9bebab7d05cd871075c27e232e886e5
-```
-
-```powershell
-# Windows (PowerShell)
-Get-FileHash Data_source\TorontoMeasureData.csv -Algorithm SHA256
-```
-
-| Check | Expected |
-|---|---|
-| **SHA-256** | `a962c429d162586397261281a74c4503b9bebab7d05cd871075c27e232e886e5` |
-| Size | 23,132 bytes |
-| Rows (excluding header) | 508 |
-| Line endings | CRLF (the published export is Windows-formatted) |
-
-If the upstream dashboard is refreshed and a measure's history is revised, this file and its hash change together — silent drift becomes impossible to miss, and the diff in git shows exactly which observations moved.
-
-### Verify or rebuild the data file
-
-The committed file is a **filtered export** of the ~1.8 MB dashboard CSV: four TTC measures only, four columns, month names expanded, annual `Period` left blank, rows ordered by dashboard `measure_id` and written with Windows (CRLF) line endings. Rebuilding it from the City's live feed reproduces the committed file byte-for-byte:
-
-```python
-from pathlib import Path
-
-import pandas as pd
-
-URL = (
-    "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/"
-    "c6d64e9b-f85a-4084-be14-60cf18509203/resource/"
-    "d4c2d841-2d74-466c-89a8-d8f7eba17050/download/torontos-dashboard-key-metrics.csv"
-)
-
-MEASURES = [
-    "TTC Average Weekday Ridership",
-    "TTC Monthly Ridership",
-    "TTC Annual Passenger Rides Peak (000s)",
-    "TTC Annual Passenger Rides Non-Peak (000s)",
-]
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-src = pd.read_csv(URL)
-out = src[src["measure_name"].isin(MEASURES)].copy()
-
-# Monthly rows carry period 1-12; annual rows repeat the year in that column
-out["Period"] = [
-    MONTHS[int(p) - 1] if it == "m" and pd.notna(p) else None
-    for p, it in zip(out["period_number_in_year"], out["interval_type"])
-]
-out["_month"] = [
-    int(p) if it == "m" and pd.notna(p) else 0
-    for p, it in zip(out["period_number_in_year"], out["interval_type"])
-]
-
-out = out.rename(columns={"measure_name": "Measure Name", "year": "Year"})
-out["Value"] = out["measure_value"].astype("int64")
-
-# Order: dashboard measure_id (2.03 -> 2.041 -> 2.042 -> 2.05), then chronologically
-out = out.sort_values(["measure_id", "Year", "_month"]).reset_index(drop=True)
-out = out[["Measure Name", "Year", "Period", "Value"]]
-
-Path("Data_source").mkdir(exist_ok=True)
-# the published export uses Windows (CRLF) line endings
-out.to_csv(Path("Data_source") / "TorontoMeasureData.csv", index=False, lineterminator="\r\n")
-print(f"wrote {len(out)} rows")   # -> wrote 508 rows
-```
-
-Nothing needs to be run to *use* this project — the data is already committed. That snippet is the **provenance check**: run it in a scratch directory and the CSV it writes will match the committed `Data_source/TorontoMeasureData.csv` byte-for-byte, so the export logic and the upstream feed can both be audited.
-
----
-
 ## 🚀 How to Run
 
 ```bash
@@ -229,22 +136,9 @@ In VS Code, select `.venv/bin/python` as the kernel for `ttc_analysis.ipynb`. `i
 
 ---
 
-## 📈 Analysis Plan
+## 🔍 Key Findings
 
-- [x] Load and profile the dataset
-- [x] **Section 1 — Normalise & shape** — split annual vs monthly measures, map `Period` → month number, build a `DatetimeIndex`, recover the 4-4-5 reporting periods, derive rides per day, and build the `monthly` / `annual` / `ytd()` analysis frames
-- [x] **Section 2 — Long-term growth** — annual totals with a trailing 12-month overlay, peak vs non-peak stacked area, and year-over-year change split into growth / plateau / collapse / recovery eras
-- [x] **Section 3 — Seasonality** — year × month heatmap of rides per reporting day, seasonality index by era, and the 4-4-5 distortion isolated against the corrected series
-- [x] **Section 4 — COVID shock & recovery** — monthly 2019-indexed series on a per-reporting-day basis, recovery completeness by calendar month, and the Jan–Sep recovery ladder through 2026
-- [x] **Section 5 — Peak / non-peak structural shift** — peak-hour share with a roundness test that separates measured years from constructed splits, and the two halves indexed to 2019
-- [x] **Section 6 — Weekday vs weekend** — weekend ridership backed out of the weekday series using the recovered period table, cross-validated across period lengths, then indexed to 2019
-- [x] **Section 7 — Summary dashboard & key insights** — 2×2 dashboard plus a written findings table and limitations recap
-
----
-
-## 🔍 Preliminary Findings
-
-Verified while profiling, charting and asserting the series in Sections 1–7.
+Each finding is asserted in the notebook, and the chart that shows it is linked by section.
 
 | Finding | Value |
 |---|---|
@@ -270,6 +164,33 @@ Verified while profiling, charting and asserting the series in Sections 1–7.
 | **Recovery plateau** | Jan–Sep recovery peaked at **79.9%** of 2019 in **2024**, then slipped to **78.7%** (2025) and **77.9%** (2026) — it is drifting down, not levelling |
 | **Where recovery is stuck** | 2025 by month: everything sits at 77–81% of 2019 **except January at 72%**, and January is falling (77.7% → 72.4% → 65.9%) |
 | Trap avoided | indexing *raw* monthly totals to 2019 makes December 2025 look like a **98.5%** recovery; per reporting day it is **78.8%**, because Dec 2019 was a 4-week period and Dec 2025 a 5-week one |
+
+### The charts
+
+<p align="center">
+  <img src="visualizations/07_dashboard.png" alt="Summary dashboard" width="100%">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="visualizations/02_annual_ridership.png" alt="Annual ridership"><br>
+      <sub><b>§2</b> — growth to a 2016 peak of 538.1M rides, a 63% collapse by 2021, and a recovery stuck below 80%</sub></td>
+    <td width="50%"><img src="visualizations/04_recovery_ladder.png" alt="Recovery ladder"><br>
+      <sub><b>§4</b> — Jan–Sep recovery peaked at 79.9% of 2019 in 2024 and has slipped two years running</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="visualizations/03_seasonality_era.png" alt="Seasonality by era"><br>
+      <sub><b>§3</b> — the seasonal swing widened from 13% to 20% as January fell away and autumn held</sub></td>
+    <td width="50%"><img src="visualizations/03_445_artifact.png" alt="4-4-5 calendar artifact"><br>
+      <sub><b>§3.3</b> — the same ridership measured two ways: raw monthly totals invent a 15% March spike</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="visualizations/06_weekend_recovery.png" alt="Weekday vs weekend recovery"><br>
+      <sub><b>§6</b> — weekends are back to 91% of 2019, weekdays only to 77%</sub></td>
+    <td width="50%"><img src="visualizations/05_peak_share.png" alt="Peak-hour share"><br>
+      <sub><b>§5</b> — peak-hour share fell to 43% by 2014 and rebounded to 45% by 2019; hollow markers are years where the split is a round percentage of the total, not a measurement</sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -301,6 +222,27 @@ Verified while profiling, charting and asserting the series in Sections 1–7.
 - **Licence:** [Open Government Licence – Toronto](https://open.toronto.ca/open-data-license/)
 - **Records:** 508 observations across 4 TTC indicators, 2003 – 2026
 - **Type:** Real open government data, refreshed daily
+
+### Verify the data
+
+The 23 KB extract ships with the repository, so a fresh clone runs the notebook with no download
+step. Confirm it has not drifted:
+
+```bash
+shasum -a 256 Data_source/TorontoMeasureData.csv
+# -> a962c429d162586397261281a74c4503b9bebab7d05cd871075c27e232e886e5
+```
+
+| Check | Expected |
+|---|---|
+| SHA-256 | `a962c429d162586397261281a74c4503b9bebab7d05cd871075c27e232e886e5` |
+| Size | 23,132 bytes |
+| Rows (excluding header) | 508 |
+| Line endings | CRLF (the published export is Windows-formatted) |
+
+If the City refreshes the dashboard and revises a measure's history, this file and its hash change
+together — so silent drift is impossible to miss, and the git diff shows exactly which
+observations moved.
 
 ---
 
