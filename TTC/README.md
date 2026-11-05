@@ -25,7 +25,12 @@ TTC/
 │   ├── 03_445_artifact.png             #   raw totals vs rides per reporting day
 │   ├── 04_recovery_index.png           #   monthly index vs the same month of 2019
 │   ├── 04_recovery_by_month.png        #   recovery completeness by calendar month
-│   └── 04_recovery_ladder.png          #   Jan–Sep recovery ladder, per reporting day
+│   ├── 04_recovery_ladder.png          #   Jan–Sep recovery ladder, per reporting day
+│   ├── 05_peak_share.png               #   peak-hour share, measured vs constructed years
+│   ├── 05_peak_vs_nonpeak_index.png    #   peak vs non-peak indexed to 2019
+│   ├── 06_weekday_vs_weekend.png       #   weekday and implied weekend ridership
+│   ├── 06_weekend_recovery.png         #   weekday vs weekend recovery index
+│   └── 07_dashboard.png                #   2×2 summary dashboard
 │
 ├── ttc_analysis.ipynb                  # EDA notebook
 ├── requirements.txt                    # pinned dependencies
@@ -80,6 +85,8 @@ TTC/
 - **The 46 null `Period` values are structural**, not dirty data — the two annual measures have no month dimension.
 - **Series reconcile internally** — summed monthly ridership reproduces the annual peak + non-peak total to within **0.011%** for every year from 2008 to 2025. Once the annual figures are rescaled from thousands to whole rides, the two independently published series agree to rounding.
 - **The monthly series is reported on 4-4-5 financial periods, not calendar months** — eight 4-week blocks plus four 5-week blocks, so every year covers exactly `8 × 28 + 4 × 35 = 364` days. This is why monthly ÷ weekday ridership sits at ~26.5 in every year: it is the weighted mix of two regimes, ~24.3 (4-week) and ~30.1 (5-week). See [Reporting periods](#-reporting-periods-are-4-4-5) below.
+- **The peak / non-peak split is not always measured.** In 7 of 23 years the published peak figure is a *round percentage* of the annual total — 2022, 2023 and 2024 are **41.0001%**, **41.0001%** and **41.0000%**, and 2025 is **42.0000%**, all accurate to within a few hundred rides out of ~170M. That cannot arise from measurement. Section 5.1 flags those years, so the split is treated as evidence only up to 2021.
+- **The 4-4-5 model checks itself.** Using period length and the weekday series to back out weekend ridership gives 817,438 rides/day from 4-week periods and 819,200 from 5-week periods — **0.22% apart**. Two independent period lengths agreeing that closely is confirmation that the recovered period table is right.
 
 ### Data quirk to know about
 
@@ -229,15 +236,15 @@ In VS Code, select `.venv/bin/python` as the kernel for `ttc_analysis.ipynb`. `i
 - [x] **Section 2 — Long-term growth** — annual totals with a trailing 12-month overlay, peak vs non-peak stacked area, and year-over-year change split into growth / plateau / collapse / recovery eras
 - [x] **Section 3 — Seasonality** — year × month heatmap of rides per reporting day, seasonality index by era, and the 4-4-5 distortion isolated against the corrected series
 - [x] **Section 4 — COVID shock & recovery** — monthly 2019-indexed series on a per-reporting-day basis, recovery completeness by calendar month, and the Jan–Sep recovery ladder through 2026
-- [ ] **Section 5 — Peak / non-peak structural shift** — peak-hour share of total rides over time
-- [ ] **Section 6 — Weekday vs total relationship** — decompose the ~26.5 monthly-to-weekday ratio into its 4-4-5 mix (~24.3 vs ~30.1), and test whether the weekday/weekend balance shifted after 2020
-- [ ] **Section 7 — Summary dashboard & key insights**
+- [x] **Section 5 — Peak / non-peak structural shift** — peak-hour share with a roundness test that separates measured years from constructed splits, and the two halves indexed to 2019
+- [x] **Section 6 — Weekday vs weekend** — weekend ridership backed out of the weekday series using the recovered period table, cross-validated across period lengths, then indexed to 2019
+- [x] **Section 7 — Summary dashboard & key insights** — 2×2 dashboard plus a written findings table and limitations recap
 
 ---
 
 ## 🔍 Preliminary Findings
 
-Verified while profiling, charting and asserting the series in Sections 1–3.
+Verified while profiling, charting and asserting the series in Sections 1–7.
 
 | Finding | Value |
 |---|---|
@@ -248,10 +255,13 @@ Verified while profiling, charting and asserting the series in Sections 1–3.
 | 2019 → 2020 collapse | **−57.2%** (525.5M → 225.0M rides) |
 | Trough year | **2021** — 197.8M rides, **−63.2%** from the 2016 peak |
 | 2025 vs 2019 recovery | **−21.4%** — still short of pre-pandemic ridership |
-| Peak-hour vs non-peak recovery | peak-hour rides **−27.0%** vs 2019, non-peak **−16.8%** — a 10.2-point gap, so the commuter market is the part that has not come back |
+| Peak-hour vs non-peak recovery | peak-hour rides **−27.0%** vs 2019, non-peak **−16.8%** — a 10.2-point gap. The direction matches every measured year, but see the split warning below: the 2025 numbers come from a constructed split |
+| **Peak-hour share (measured years)** | **47.25% (2003) → 43.00% (2014) → 45.22% (2019) → 39.92% (2021)**: down 4.3 points over eleven years, back up 2.2 by 2019 (off-peak slipped faster than peak in the plateau), then down 5.3 in the collapse |
+| **Peak/non-peak split quality** | the split is a round percentage of the total in **7 of 23 years** (2014, 2016, 2020, **2022, 2023, 2024, 2025**) — so it is evidence only through 2021 (§5.1) |
+| **Weekends came back, weekdays did not** | 2025 vs 2019: weekday ridership **76.5%**, implied weekend ridership **91.4%** — a **14.9-point** gap, and the weekend/weekday ratio rose from 0.48 to 0.57 |
+| 4-4-5 cross-validation | backing out weekend ridership from 4-week periods gives 817,438 rides/day, from 5-week periods 819,200 — **0.22% apart**, which independently confirms the period table |
 | 2026 YTD (Jan–Sep) vs 2025 | **−1.0%** (303.4M vs 306.5M) — recovery has plateaued |
 | Trailing 12 months to Sep 2026 | **410.0M**, −22.0% vs 2019 |
-| Peak-hour share of rides | 47.3% (2003) → 43.0% (2014) → 39.9% (2021) → 42.0% (2025) |
 | **Strongest month** | **November** (index 1.07 vs the year's average month) — not September, which is second at 1.05 |
 | **Weakest month** | **January** now, at index **0.87** — it was 0.99 before 2020. Pre-pandemic the trough was August (0.93) |
 | Seasonal spread | widened from **13%** (2015–19) to **20%** (2023–25): the swing has deepened, not flattened |
@@ -270,7 +280,8 @@ Verified while profiling, charting and asserting the series in Sections 1–3.
 - **Monthly granularity only** — no daily or hourly ridership.
 - **2026 is partial** (Jan–Sep) — always compare year-to-date to year-to-date; the notebook's `ytd()` helper exists for exactly this.
 - **TTC reports on 4-4-5 week financial periods**, so a "month" in this data is a 4- or 5-week block, not a calendar month. The period table is recovered and asserted in Section 1.3; raw month-over-month comparisons are not used anywhere, and month-level rates are always divided by reporting days (28 / 35), never calendar days.
-- **Single-month values can be revised upstream** — e.g. December 2024 average weekday ridership (1,061k) is 13.0% below both December 2023 and December 2025 in a year that otherwise grew, while the same month's total stayed at 40.7M. It is flagged rather than "corrected", since the true figure is unknown.
+- **The peak / non-peak split is a modelled number in 7 of 23 years**, including every year since 2022, so claims about the commuter market's recovery cannot lean on it — they lean on the weekday series in Section 6 instead.
+- **Single-month values can be revised upstream** — e.g. December 2024 average weekday ridership (1,061k) is 13.0% below both December 2023 and December 2025 in a year that otherwise grew, while the same month's total stayed at 40.7M. It is flagged rather than "corrected", since the true figure is unknown; it also inflates the implied weekend estimate for that month.
 
 ---
 
