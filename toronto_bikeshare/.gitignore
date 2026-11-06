@@ -1,0 +1,2 @@
+.venv/
+!toronto_bikeshare/data_source/ckan_metadata_*.json

@@ -4,6 +4,9 @@
 # Python
 __pycache__/
 
+# Local scratch code
+scratch.py
+
 # Jupyter
 .ipynb_checkpoints/
 
